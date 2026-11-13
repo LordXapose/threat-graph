@@ -1,4 +1,4 @@
-module ttp-tool-mapper
+module github.com/LordXapose/threat-graph
 
 go 1.22
 

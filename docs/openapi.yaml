@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: TTP Tool Mapper API
+  title: ThreatGraph API
   version: 1.0.0
   description: Read-only ATT&CK catalog and evidence-backed tool/detection mappings.
 servers:

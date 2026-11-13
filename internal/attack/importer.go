@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"ttp-tool-mapper/internal/models"
+	"github.com/LordXapose/threat-graph/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

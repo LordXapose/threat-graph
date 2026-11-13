@@ -6,14 +6,14 @@ import (
 	"log"
 	"os"
 
-	"ttp-tool-mapper/internal/attack"
-	"ttp-tool-mapper/internal/db"
+	"github.com/LordXapose/threat-graph/internal/attack"
+	"github.com/LordXapose/threat-graph/internal/db"
 )
 
 func main() {
 	inputPath := flag.String("file", "", "path to an official ATT&CK STIX JSON bundle")
 	version := flag.String("version", "", "ATT&CK dataset release version")
-	databasePath := flag.String("db", "data/ttp_tool_mapper.db", "SQLite database path")
+	databasePath := flag.String("db", "data/threat_graph.db", "SQLite database path")
 	flag.Parse()
 
 	if *inputPath == "" || *version == "" {

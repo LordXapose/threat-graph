@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"ttp-tool-mapper/internal/api"
-	"ttp-tool-mapper/internal/db"
+	"github.com/LordXapose/threat-graph/internal/api"
+	"github.com/LordXapose/threat-graph/internal/db"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +36,7 @@ func main() {
 		requestsPerMinute = parsed
 	}
 
-	databasePath := envOrDefault("DB_PATH", filepath.Join("data", "ttp_tool_mapper.db"))
+	databasePath := envOrDefault("DB_PATH", filepath.Join("data", "threat_graph.db"))
 	database, err := db.Open(databasePath)
 	if err != nil {
 		log.Fatalf("open database: %v", err)
@@ -65,7 +65,7 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	log.Printf("starting TTP Tool Mapper API on %s", address)
+	log.Printf("starting ThreatGraph API on %s", address)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -1,4 +1,4 @@
-# TTP Tool Mapper
+# ThreatGraph
 
 A Go API for exploring MITRE ATT&CK techniques and maintaining evidence-backed mappings to tools, procedures, and detections. Designed for research, purple-team planning, and detection engineering; it does not execute procedures.
 
@@ -37,7 +37,7 @@ Options:
 
 - `--file`: STIX JSON bundle path (required)
 - `--version`: release or snapshot label (required)
-- `--db`: SQLite path (default `data/ttp_tool_mapper.db`)
+- `--db`: SQLite path (default `data/threat_graph.db`)
 
 ## Run the API
 
@@ -55,7 +55,7 @@ The server listens on `127.0.0.1:8080` by default. Configuration:
 | `API_ADDR` | `127.0.0.1:8080` | Listen address. Non-loopback addresses require `API_TOKEN`. |
 | `API_TOKEN` | unset | Bearer token required for all write endpoints. |
 | `API_RATE_LIMIT_PER_MIN` | `600` | Per-client request limit per minute. |
-| `DB_PATH` | `data/ttp_tool_mapper.db` | SQLite database path. |
+| `DB_PATH` | `data/threat_graph.db` | SQLite database path. |
 
 If you expose the service beyond loopback, use a trusted network and a TLS-terminating reverse proxy. Read endpoints are not authenticated; the token protects writes only.
 

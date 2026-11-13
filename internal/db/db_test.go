@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"ttp-tool-mapper/internal/models"
+	"github.com/LordXapose/threat-graph/internal/models"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

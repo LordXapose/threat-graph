@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"ttp-tool-mapper/internal/db"
-	"ttp-tool-mapper/internal/models"
+	"github.com/LordXapose/threat-graph/internal/db"
+	"github.com/LordXapose/threat-graph/internal/models"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

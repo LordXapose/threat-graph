@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"ttp-tool-mapper/internal/db"
-	"ttp-tool-mapper/internal/models"
+	"github.com/LordXapose/threat-graph/internal/db"
+	"github.com/LordXapose/threat-graph/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
