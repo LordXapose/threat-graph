@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: TTP Tool Mapper API
+  version: 1.0.0
+  description: Read-only ATT&CK catalog and evidence-backed tool/detection mappings.
+servers:
+  - url: http://127.0.0.1:8080/api/v1
+security: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is ready
+  /techniques:
+    get:
+      summary: Search ATT&CK techniques
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: tactic
+          description: ATT&CK tactic short name, such as execution
+          schema: { type: string }
+        - in: query
+          name: platform
+          schema: { type: string }
+        - in: query
+          name: deprecated
+          schema: { type: boolean }
+        - in: query
+          name: revoked
+          schema: { type: boolean }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Paginated technique results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /techniques/{attack_id}:
+    get:
+      summary: Get a technique by ATT&CK ID
+      parameters:
+        - in: path
+          name: attack_id
+          required: true
+          schema: { type: string, example: T1059.001 }
+      responses:
+        "200":
+          description: Technique details and related evidence
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /tools:
+    get:
+      summary: List tools
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Paginated tool results
+    post:
+      summary: Add a tool
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolInput"
+      responses:
+        "201":
+          description: Tool created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Tool name already exists
+  /tools/{id}:
+    get:
+      summary: Get a tool and its mappings
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Tool details
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /mappings:
+    get:
+      summary: List tool-to-technique mappings
+      parameters:
+        - in: query
+          name: technique
+          description: ATT&CK ID, such as T1059.001
+          schema: { type: string }
+        - in: query
+          name: tool
+          description: Tool ID or exact name
+          schema: { type: string }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Paginated mapping results
+  /procedures:
+    post:
+      summary: Add a researched procedure mapping
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcedureInput"
+      responses:
+        "201":
+          description: Mapping created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /detections:
+    post:
+      summary: Add a detection mapping
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectionInput"
+      responses:
+        "201":
+          description: Detection created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /imports:
+    get:
+      summary: List imported dataset versions and checksums
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Paginated import history
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    limit:
+      in: query
+      name: limit
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    offset:
+      in: query
+      name: offset
+      schema: { type: integer, minimum: 0, default: 0 }
+  responses:
+    BadRequest:
+      description: Invalid request or query
+    Unauthorized:
+      description: Missing or invalid bearer token
+    NotFound:
+      description: Resource not found
+    RateLimited:
+      description: Request limit exceeded
+  schemas:
+    Page:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { type: object }
+        page:
+          type: object
+          properties:
+            limit: { type: integer }
+            offset: { type: integer }
+            total: { type: integer }
+    ToolInput:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 200 }
+        category: { type: string }
+        vendor: { type: string }
+        description: { type: string }
+    ProcedureInput:
+      type: object
+      required: [tool_id, technique_id, summary, source]
+      additionalProperties: false
+      properties:
+        tool_id: { type: integer, minimum: 1 }
+        technique_id: { type: integer, minimum: 1 }
+        summary: { type: string, maxLength: 2000 }
+        command_example: { type: string, maxLength: 4096 }
+        notes: { type: string, maxLength: 8000 }
+        source: { type: string, maxLength: 300 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reviewed_at: { type: string, format: date-time }
+    DetectionInput:
+      type: object
+      required: [technique_id, type, content, source]
+      additionalProperties: false
+      properties:
+        technique_id: { type: integer, minimum: 1 }
+        type: { type: string, maxLength: 100 }
+        content: { type: string, maxLength: 65536 }
+        source: { type: string, maxLength: 300 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reviewed_at: { type: string, format: date-time }

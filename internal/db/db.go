@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"ttp-tool-mapper/internal/models"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func Open(path string) (*gorm.DB, error) {
@@ -16,7 +18,7 @@ func Open(path string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("create db directory: %w", err)
 	}
 
-	database, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	database, err := gorm.Open(sqlite.Open(path), &gorm.Config{TranslateError: true})
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite database: %w", err)
 	}
@@ -25,64 +27,87 @@ func Open(path string) (*gorm.DB, error) {
 }
 
 func EnsureSchema(database *gorm.DB) error {
-	return database.AutoMigrate(
+	if err := database.AutoMigrate(
+		&models.Tactic{},
+		&models.Platform{},
 		&models.Technique{},
 		&models.Tool{},
 		&models.Procedure{},
 		&models.Detection{},
-	)
+		&models.DatasetImport{},
+	); err != nil {
+		return err
+	}
+	return migrateLegacyCatalogFields(database)
 }
 
-func SeedSampleData(database *gorm.DB) error {
-	var techniqueCount int64
-	if err := database.Model(&models.Technique{}).Count(&techniqueCount).Error; err != nil {
-		return fmt.Errorf("count techniques: %w", err)
-	}
-	if techniqueCount > 0 {
-		return nil
-	}
-
-	technique := models.Technique{
-		ATTACKID:    "T1059.001",
-		Name:        "PowerShell",
-		Tactic:      "Execution",
-		Description: "Adversaries may use PowerShell to execute commands and scripts.",
-		Platform:    "Windows",
-	}
-	if err := database.Create(&technique).Error; err != nil {
-		return fmt.Errorf("create technique: %w", err)
-	}
-
-	tool := models.Tool{
-		Name:        "PowerShell",
-		Category:    "Execution",
-		Vendor:      "Microsoft",
-		Description: "Command shell and scripting environment used in Windows environments.",
-	}
-	if err := database.Create(&tool).Error; err != nil {
-		return fmt.Errorf("create tool: %w", err)
-	}
-
-	procedure := models.Procedure{
-		ToolID:         tool.ID,
-		TechniqueID:    technique.ID,
-		Summary:        "Launch a PowerShell process and invoke a script block for remote execution.",
-		CommandExample: "powershell -nop -enc <base64>",
-		Notes:          "This is a sample mapping used for research and lab setup.",
-	}
-	if err := database.Create(&procedure).Error; err != nil {
-		return fmt.Errorf("create procedure: %w", err)
+func migrateLegacyCatalogFields(database *gorm.DB) error {
+	if database.Migrator().HasColumn("techniques", "tactic") {
+		var rows []struct {
+			ID     uint
+			Tactic string
+		}
+		if err := database.Table("techniques").Select("id, tactic").Where("tactic <> ''").Scan(&rows).Error; err != nil {
+			return fmt.Errorf("read legacy technique tactics: %w", err)
+		}
+		for _, row := range rows {
+			shortName := slug(row.Tactic)
+			if shortName == "" {
+				continue
+			}
+			tactic := models.Tactic{Name: row.Tactic, ShortName: shortName}
+			if err := database.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "short_name"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name"}),
+			}).Create(&tactic).Error; err != nil {
+				return fmt.Errorf("migrate legacy tactic %q: %w", row.Tactic, err)
+			}
+			if err := database.Where("short_name = ?", shortName).First(&tactic).Error; err != nil {
+				return fmt.Errorf("load migrated tactic %q: %w", shortName, err)
+			}
+			if err := database.Exec(
+				"INSERT OR IGNORE INTO technique_tactics (technique_id, tactic_id) VALUES (?, ?)",
+				row.ID, tactic.ID,
+			).Error; err != nil {
+				return fmt.Errorf("associate migrated tactic %q: %w", shortName, err)
+			}
+		}
 	}
 
-	detection := models.Detection{
-		TechniqueID: technique.ID,
-		Type:        "sigma",
-		Content:     "Title: PowerShell command invocation\nLogsource: ...",
-		Source:      "research-sample",
+	if database.Migrator().HasColumn("techniques", "platform") {
+		var rows []struct {
+			ID       uint
+			Platform string
+		}
+		if err := database.Table("techniques").Select("id, platform").Where("platform <> ''").Scan(&rows).Error; err != nil {
+			return fmt.Errorf("read legacy technique platforms: %w", err)
+		}
+		for _, row := range rows {
+			name := strings.TrimSpace(row.Platform)
+			if name == "" {
+				continue
+			}
+			platform := models.Platform{Name: name}
+			if err := database.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "name"}},
+				DoNothing: true,
+			}).Create(&platform).Error; err != nil {
+				return fmt.Errorf("migrate legacy platform %q: %w", name, err)
+			}
+			if err := database.Where("name = ?", name).First(&platform).Error; err != nil {
+				return fmt.Errorf("load migrated platform %q: %w", name, err)
+			}
+			if err := database.Exec(
+				"INSERT OR IGNORE INTO technique_platforms (technique_id, platform_id) VALUES (?, ?)",
+				row.ID, platform.ID,
+			).Error; err != nil {
+				return fmt.Errorf("associate migrated platform %q: %w", name, err)
+			}
+		}
 	}
-	if err := database.Create(&detection).Error; err != nil {
-		return fmt.Errorf("create detection: %w", err)
-	}
-
 	return nil
+}
+
+func slug(value string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(value))), "-")
 }
